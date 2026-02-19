@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <h1>TimeZone Changer</h1>
+        <div id="status-card" class="card">
+            <div class="info-row">
+                <span class="label">Timezone:</span>
+                <span id="timezone" class="value">Loading...</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Location:</span>
+                <span id="location" class="value">Loading...</span>
+            </div>
+            <div class="info-row">
+                <span class="label">IP:</span>
+                <span id="ip" class="value">Loading...</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Last Update:</span>
+                <span id="last-update" class="value">--</span>
+            </div>
+        </div>
+        <button id="refresh-btn">Refresh Now</button>
+        <p class="footer">Auto-synced with IP Location</p>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

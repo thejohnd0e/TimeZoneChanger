@@ -1,0 +1,25 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Extension files
+*.crx
+*.pem
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node modules (if any)
+node_modules/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
