@@ -1,7 +1,7 @@
 # 🕒 TimeZone Changer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.01-blue.svg)](#)
 [![Browser](https://img.shields.io/badge/Chrome-Extension-green.svg)](#)
 
 **TimeZone Changer** is a powerful Google Chrome extension that automatically synchronizes your browser's timezone with your current IP address location. This is crucial for maintaining privacy and passing "Timezone Mismatch" checks on various privacy-focused websites.
