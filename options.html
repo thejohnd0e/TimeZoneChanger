@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TimeZone Changer Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="container">
+    <h1>TimeZone Changer Settings</h1>
+
+    <section class="card">
+      <h2>Excluded Sites</h2>
+      <p class="hint">On excluded domains spoofing is fully disabled and system timezone is used.</p>
+      <div class="row">
+        <input id="exclude-input" type="text" placeholder="*.example.com or app.example.com">
+        <button id="add-exclude-btn">Add</button>
+      </div>
+      <ul id="exclude-list" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Whitelist</h2>
+      <p class="hint">If whitelist is not empty, spoofing works only for domains listed here.</p>
+      <div class="row">
+        <input id="whitelist-input" type="text" placeholder="*.allowed-site.com">
+        <button id="add-whitelist-btn">Add</button>
+      </div>
+      <ul id="whitelist-list" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Per-site Rules</h2>
+      <p class="hint">Mode priority: Tab rule > Site rule > Exclusions/Whitelist > Default.</p>
+      <div class="row">
+        <input id="rule-pattern" type="text" placeholder="Pattern (*.site.com)">
+        <select id="rule-mode">
+          <option value="auto">Auto by IP</option>
+          <option value="disable">Do not spoof</option>
+          <option value="fixed">Fixed timezone</option>
+        </select>
+        <input id="rule-timezone" type="text" placeholder="America/Los_Angeles">
+        <button id="add-rule-btn">Save</button>
+      </div>
+      <ul id="rules-list" class="list"></ul>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

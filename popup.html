@@ -7,7 +7,7 @@
 <body>
     <div class="container">
         <h1>TimeZone Changer</h1>
-        <div id="status-card" class="card">
+        <div class="card">
             <div class="info-row">
                 <span class="label">Timezone:</span>
                 <span id="timezone" class="value">Loading...</span>
@@ -25,8 +25,46 @@
                 <span id="last-update" class="value">--</span>
             </div>
         </div>
-        <button id="refresh-btn">Refresh Now</button>
-        <p class="footer">Auto-synced with IP Location</p>
+
+        <div class="card">
+            <div class="section-title">Current Site</div>
+            <div class="info-row">
+                <span class="label">Host:</span>
+                <span id="current-host" class="value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Mode:</span>
+                <span id="current-mode" class="value">-</span>
+            </div>
+            <button id="add-exclusion-btn" class="secondary-btn">Add Site to Exclusions</button>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Per-site Rule</div>
+            <select id="site-mode">
+                <option value="auto">Auto by IP</option>
+                <option value="disable">Do not spoof</option>
+                <option value="fixed">Fixed timezone</option>
+            </select>
+            <input id="site-timezone" type="text" placeholder="America/New_York">
+            <button id="save-site-rule-btn">Save Site Rule</button>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Per-tab Rule</div>
+            <select id="tab-mode">
+                <option value="auto">Auto by IP</option>
+                <option value="disable">Do not spoof</option>
+                <option value="fixed">Fixed timezone</option>
+            </select>
+            <input id="tab-timezone" type="text" placeholder="Europe/Berlin">
+            <button id="save-tab-rule-btn">Apply to This Tab</button>
+        </div>
+
+        <div class="actions">
+            <button id="refresh-btn">Refresh IP/Timezone</button>
+            <button id="open-options-btn" class="secondary-btn">Open Settings</button>
+        </div>
     </div>
     <script src="popup.js"></script>
 </body>
