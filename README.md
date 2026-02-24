@@ -1,54 +1,80 @@
-# 🕒 TimeZone Changer
+# TimeZone Changer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-2.01-blue.svg)](#)
 [![Browser](https://img.shields.io/badge/Chrome-Extension-green.svg)](#)
 
-**TimeZone Changer** is a powerful Google Chrome extension that automatically synchronizes your browser's timezone with your current IP address location. This is crucial for maintaining privacy and passing "Timezone Mismatch" checks on various privacy-focused websites.
+`TimeZone Changer` is a Chrome extension (Manifest V3) that aligns browser timezone behavior with your network/IP location, while giving full per-site and per-tab control over spoofing.
 
----
+## Highlights (v2.01)
 
-## 🚀 Key Features
+- Automatic timezone detection by IP (`ipwho.is`, `freeipapi.com`)
+- Domain exclusions with wildcard support (`*.domain.com`)
+- Whitelist mode support
+- Per-site rules:
+  - `Do not spoof`
+  - `Fixed timezone`
+  - `Auto by IP`
+- Per-tab overrides (session-scoped)
+- Tab-lifetime timezone lock in auto mode (stable behavior while tab is open)
+- Safe patching strategy (Proxy-based where possible)
+- Popup and Options UI for rule management
 
-- **Automatic Detection:** Instantly detects IP changes when you switch networks or toggle your VPN.
-- **Deep Spoofing:** Overrides `Intl.DateTimeFormat`, `Date.getTimezoneOffset`, and other browser APIs at the page level.
-- **Smart Updates:** Checks for IP changes on every navigation and periodically in the background.
-- **Reliable Data:** Utilizes multiple redundant APIs (ipwho.is, freeipapi.com) for high accuracy.
-- **iFrame Support:** The spoofing logic works seamlessly across all frames on a page.
+## Default Protected Domains
 
-## 🛠 Technical Stack
+Spoofing is disabled by default on critical Google/Gemini domains to avoid breaking uploads and auth flows:
 
-- **Manifest V3** (Current Chrome standard)
-- **Vanilla JavaScript** (Maximum performance, zero dependencies)
-- **Chrome Storage API** (Persistent state management)
-- **Scripting API** (High-authority script injection)
+- `*.google.com`
+- `gemini.google.com`
+- `*.googleapis.com`
+- `upload.googleapis.com`
+- `*.gstatic.com`
+- `accounts.google.com`
 
-## 📦 Installation
+On these hosts the extension falls back to real system timezone behavior.
 
-1. Download or clone this repository.
-2. Open Google Chrome and navigate to `chrome://extensions/`.
-3. Enable **"Developer mode"** in the top right corner.
-4. Click **"Load unpacked"**.
+## Rule Priority
+
+Rules are resolved in this order:
+
+1. Per-tab override
+2. Per-site rule
+3. Exclusion / whitelist decision
+4. Global default mode (`auto`)
+
+## Storage Model
+
+- `chrome.storage.sync`: settings, domain lists, site rules
+- `chrome.storage.local`: runtime IP/timezone metadata
+- `chrome.storage.session`: per-tab temporary state (lock/override)
+
+## UI
+
+- **Popup**
+  - Current timezone/IP/location status
+  - Current host + active mode
+  - Quick action: add current site to exclusions
+  - Quick per-site and per-tab mode controls
+- **Options page**
+  - Manage excluded domains
+  - Manage whitelist domains
+  - Manage per-site rules
+
+## Installation
+
+1. Clone or download this repository.
+2. Open `chrome://extensions/`.
+3. Enable `Developer mode`.
+4. Click `Load unpacked`.
 5. Select the project folder.
 
-## 🖥 How to Use
+## Technical Notes
 
-Once installed, the extension works automatically:
-1. It identifies your current IP and the corresponding timezone.
-2. Click the extension icon to see your current status: city, country, IP, and timezone.
-3. If you switch your VPN, the extension will automatically reload active tabs to apply the new timezone settings.
+- Uses content-script + page-context injection model
+- Checks `location.hostname` before applying spoof logic
+- Supports all frames (`all_frames: true`)
+- Maintains MV3 compatibility
 
-## 🔍 How It Works
+## License
 
-The extension operates on three layers:
-1. **Background Service Worker:** Monitors network activity and fetches timezone data.
-2. **Content Script:** Prepares the environment for every page you visit.
-3. **Injected Script:** Injected into the page's execution context before any other scripts run, patching system Date and Time functions.
-
-## 📜 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-*Designed for maximum online privacy and seamless browsing.*
+MIT. See [LICENSE](LICENSE).
