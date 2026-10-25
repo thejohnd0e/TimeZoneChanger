@@ -163,12 +163,13 @@
   };
 
   function parseDate(value) {
-    const text = `${value}`.trim();
+    const text = `${value}`;
     // ISO date-only forms are UTC; explicit offsets must remain absolute.
     const dateOnly = /^[+-]?\d{4,6}(?:-\d{2}(?:-\d{2})?)?$/.test(text);
     const explicit = /(?:z|[+-]\d{2}:?\d{2})\s*$/i.test(text) || /\b(?:GMT|UTC|[ECMP][SD]T)\b/i.test(text);
     if (dateOnly || explicit) return OriginalDate.parse(text);
-    const wall = OriginalDate.parse(text.includes("T") ? `${text}Z` : `${text} UTC`);
+    const isoLocal = /^[+-]?\d{4,6}-\d{2}-\d{2}[Tt]/.test(text);
+    const wall = OriginalDate.parse(isoLocal ? `${text}Z` : `${text} UTC`);
     return fromLocalTime(wall);
   }
 

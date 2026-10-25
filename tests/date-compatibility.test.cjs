@@ -13,6 +13,8 @@ const cases=[
   ['local getters', '(()=>{const d=new Date("2026-01-15T12:34:56.789Z");return [d.getFullYear(),d.getMonth(),d.getDate(),d.getDay(),d.getHours(),d.getMinutes(),d.getSeconds(),d.getMilliseconds(),d.getYear()];})()'],
   ['constructor fields', '[new Date(2026,0,15,7,30,5,123).getTime(),new Date(26,0,1).getTime(),new Date(2026,12,0,25).getTime()]'],
   ['ISO local parsing', '[new Date("2026-01-15T12:30:45.123").getTime(), Date.parse("2026-01-15T12:30"), new Date("2026-01-15").getTime()]'],
+  ['lowercase ISO local separator', '[Date.parse("2026-01-15t12:00:00"),new Date("2026-01-15t12:00:00").getTime()]'],
+  ['whitespace date-only strings keep native local interpretation', '[Date.parse("2026-01-15 "),new Date(" 2026-01-15").getTime()]'],
   ['legacy local parsing', '[new Date("Jan 15 2026 12:30:00").getTime(), Date.parse("01/15/2026 12:30:00")]'],
   ['explicit offset remains absolute', '[new Date("2026-01-15T12:30:00+09:00").getTime(), Date.parse("2026-01-15T12:30:00Z"),new Date(123).getTime()]'],
   ['local setters', '(()=>{return ["setFullYear","setMonth","setDate","setHours","setMinutes","setSeconds","setMilliseconds","setYear"].map((m,i)=>{const d=new Date("2026-01-15T12:34:56.789Z");return [d[m](...[2027,5,20,4,15,10,456,26].slice(i,i+1)),d.getTime()];});})()'],
