@@ -1,7 +1,32 @@
 function sendMessage(payload) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(payload, (response) => resolve(response));
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(payload, (response) => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      if (!response) return reject(new Error("No response from extension."));
+      if (response.ok === false) return reject(new Error(response.error || "Operation failed."));
+      resolve(response);
+    });
   });
+}
+
+function showError(error) {
+  document.getElementById("status-message").textContent = error?.message === "invalid-timezone"
+    ? "Enter a valid timezone, for example America/New_York." : error?.message || "Operation failed.";
+}
+
+async function runAction(button, action) {
+  button.disabled = true;
+  document.getElementById("status-message").textContent = "";
+  try {
+    await action();
+    document.getElementById("status-message").textContent = "Saved. Reload affected pages to apply.";
+  } catch (error) { showError(error); }
+  finally { button.disabled = false; }
+}
+
+function onAction(id, action) {
+  const button = document.getElementById(id);
+  button.addEventListener("click", () => runAction(button, action));
 }
 
 function removeItem(list, value) {
@@ -15,7 +40,7 @@ function createListItem(text, onDelete) {
   const button = document.createElement("button");
   button.textContent = "Delete";
   button.className = "del-btn";
-  button.addEventListener("click", onDelete);
+  button.addEventListener("click", () => runAction(button, onDelete));
   li.appendChild(label);
   li.appendChild(button);
   return li;
@@ -73,7 +98,7 @@ async function render() {
   });
 }
 
-document.getElementById("add-exclude-btn").addEventListener("click", async () => {
+onAction("add-exclude-btn", async () => {
   const input = document.getElementById("exclude-input");
   const value = input.value.trim().toLowerCase();
   if (!value) return;
@@ -84,7 +109,7 @@ document.getElementById("add-exclude-btn").addEventListener("click", async () =>
   await render();
 });
 
-document.getElementById("add-whitelist-btn").addEventListener("click", async () => {
+onAction("add-whitelist-btn", async () => {
   const input = document.getElementById("whitelist-input");
   const value = input.value.trim().toLowerCase();
   if (!value) return;
@@ -95,7 +120,7 @@ document.getElementById("add-whitelist-btn").addEventListener("click", async () 
   await render();
 });
 
-document.getElementById("add-rule-btn").addEventListener("click", async () => {
+onAction("add-rule-btn", async () => {
   const pattern = document.getElementById("rule-pattern").value.trim().toLowerCase();
   const mode = document.getElementById("rule-mode").value;
   const timezone = document.getElementById("rule-timezone").value.trim();
@@ -113,4 +138,4 @@ document.getElementById("add-rule-btn").addEventListener("click", async () => {
   await render();
 });
 
-render();
+render().catch(showError);

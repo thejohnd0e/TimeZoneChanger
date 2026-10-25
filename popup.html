@@ -9,7 +9,7 @@
         <h1>TimeZone Changer</h1>
         <div class="card">
             <div class="info-row">
-                <span class="label">Timezone:</span>
+                <span class="label">IP timezone:</span>
                 <span id="timezone" class="value">Loading...</span>
             </div>
             <div class="info-row">
@@ -28,6 +28,8 @@
 
         <div class="card">
             <div class="section-title">Current Site</div>
+            <div class="info-row"><span class="label">Effective timezone:</span><span id="effective-timezone" class="value">-</span></div>
+            <div class="info-row"><span class="label">Rule source:</span><span id="rule-source" class="value">-</span></div>
             <div class="info-row">
                 <span class="label">Host:</span>
                 <span id="current-host" class="value">-</span>
@@ -42,6 +44,7 @@
         <div class="card">
             <div class="section-title">Per-site Rule</div>
             <select id="site-mode">
+                <option value="inherit">Use inherited policy</option>
                 <option value="auto">Auto by IP</option>
                 <option value="disable">Do not spoof</option>
                 <option value="fixed">Fixed timezone</option>
@@ -53,6 +56,7 @@
         <div class="card">
             <div class="section-title">Per-tab Rule</div>
             <select id="tab-mode">
+                <option value="inherit">Use site/default policy</option>
                 <option value="auto">Auto by IP</option>
                 <option value="disable">Do not spoof</option>
                 <option value="fixed">Fixed timezone</option>
@@ -62,6 +66,7 @@
         </div>
 
         <div class="actions">
+            <p id="status-message" role="status" aria-live="polite"></p>
             <button id="refresh-btn">Refresh IP/Timezone</button>
             <button id="open-options-btn" class="secondary-btn">Open Settings</button>
         </div>

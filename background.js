@@ -91,11 +91,11 @@ function pickModeTimezone(tabStateEntry, behavior, runtimeTimezone) {
   const mode = tabStateEntry?.tabOverride?.mode || behavior.mode;
   if (mode === "disable") return { mode: "disable", timezone: "" };
   if (mode === "fixed") {
-    const fixedTz = tabStateEntry?.tabOverride?.timezone || behavior.timezone || runtimeTimezone || SYSTEM_TIMEZONE;
+    const fixedTz = tabStateEntry?.tabOverride ? tabStateEntry.tabOverride.timezone : behavior.timezone;
     return { mode: "fixed", timezone: fixedTz };
   }
 
-  const lockedTimezone = tabStateEntry?.lockedTimezone || runtimeTimezone || SYSTEM_TIMEZONE;
+  const lockedTimezone = TZC_SHARED.isValidTimezone(tabStateEntry?.lockedTimezone) ? tabStateEntry.lockedTimezone : runtimeTimezone || SYSTEM_TIMEZONE;
   return { mode: "auto", timezone: lockedTimezone };
 }
 
@@ -121,6 +121,9 @@ async function getPageConfig(tabId, hostname) {
     tabEntry = state[tabId] || {};
   }
   const selection = pickModeTimezone(tabEntry, behavior, TZC_SHARED.isValidTimezone(runtime.timezone) ? runtime.timezone : "");
+  if (selection.mode === "fixed" && !TZC_SHARED.isValidTimezone(selection.timezone)) {
+    return { shouldSpoof: false, mode: "disable", timezone: SYSTEM_TIMEZONE, source: tabEntry.tabOverride ? "tabOverride" : behavior.source, error: "invalid-timezone" };
+  }
   if (selection.mode === "auto" && (TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) || TZC_SHARED.isValidTimezone(runtime.timezone))) {
     state[tabId] = {
       ...tabEntry,
@@ -148,7 +151,8 @@ async function getTabStatus(tab) {
   if (!hostname) {
     return { hostname: "", mode: "disable", timezone: SYSTEM_TIMEZONE, shouldSpoof: false, source: "unsupported" };
   }
-  return { hostname, ...(await getPageConfig(tab.id, hostname)) };
+  const [config, settings, state] = await Promise.all([getPageConfig(tab.id, hostname), getSettings(), getTabState()]);
+  return { hostname, ...config, siteRule: settings.siteRules[hostname] || null, tabOverride: state[tab.id]?.tabOverride || null };
 }
 
 async function updateTimezone(force = false) {
@@ -204,134 +208,107 @@ async function initialize() {
   await updateTimezone(true);
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  initialize();
-});
+function reportFailure(error) {
+  console.warn("[TZ] Operation failed:", error?.message || error);
+}
 
-chrome.runtime.onStartup.addListener(() => {
-  initialize();
-});
-
+chrome.runtime.onInstalled.addListener(() => { initialize().catch(reportFailure); });
+chrome.runtime.onStartup.addListener(() => { initialize().catch(reportFailure); });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "check-ip-periodic") updateTimezone();
+  if (alarm.name === "check-ip-periodic") updateTimezone().catch(reportFailure);
 });
-
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId === 0) updateTimezone();
+  if (details.frameId === 0) updateTimezone().catch(reportFailure);
 });
+chrome.tabs.onRemoved.addListener((tabId) => { clearTabState(tabId).catch(reportFailure); });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
-  clearTabState(tabId);
-});
+function invalidFixedRule(rule) {
+  return rule?.mode === "fixed" && !TZC_SHARED.isValidTimezone(String(rule.timezone || "").trim());
+}
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.action === "refresh") {
-    lastCheckTime = 0;
-    updateTimezone(true).then((success) => sendResponse({ success }));
-    return true;
-  }
+let settingsWrites = Promise.resolve();
+function mutateSettings(change) {
+  const write = settingsWrites.catch(() => {}).then(async () => setSettings(await change(await getSettings())));
+  settingsWrites = write;
+  return write;
+}
 
-  if (msg?.action === "tzc:get-page-config") {
+async function handleMessage(msg, sender) {
+  if (msg.action === "refresh") return { success: await updateTimezone(true) };
+  if (msg.action === "tzc:get-page-config") {
     const tabId = sender?.tab?.id;
     const hostname = String(msg.hostname || "").trim().toLowerCase();
-    if (!tabId || !hostname) {
-      sendResponse({ shouldSpoof: false, mode: "disable", timezone: SYSTEM_TIMEZONE, source: "invalid" });
-      return false;
+    if (!Number.isInteger(tabId) || tabId < 0 || !hostname) {
+      return { shouldSpoof: false, mode: "disable", timezone: SYSTEM_TIMEZONE, source: "invalid" };
     }
-    getPageConfig(tabId, hostname).then(sendResponse);
-    return true;
+    return getPageConfig(tabId, hostname);
   }
-
-  if (msg?.action === "tzc:net-active") {
+  if (msg.action === "tzc:net-active") {
     const tabId = sender?.tab?.id;
-    if (!tabId) return false;
     if (msg.active) busyTabs.add(tabId);
     else busyTabs.delete(tabId);
-    return false;
+    return { ok: true };
   }
-
-  if (msg?.action === "tzc:get-settings") {
-    Promise.all([getSettings(), getRuntimeState()]).then(([settings, runtime]) => {
-      sendResponse({ settings, runtime, systemTimezone: SYSTEM_TIMEZONE });
-    });
-    return true;
+  if (msg.action === "tzc:get-settings") {
+    const [settings, runtime] = await Promise.all([getSettings(), getRuntimeState()]);
+    return { settings, runtime, systemTimezone: SYSTEM_TIMEZONE };
   }
-
-  if (msg?.action === "tzc:update-settings") {
-    setSettings(msg.settings || {}).then((settings) => sendResponse({ ok: true, settings }));
-    return true;
+  if (msg.action === "tzc:update-settings") {
+    if (Object.values(msg.settings?.siteRules || {}).some(invalidFixedRule)) return { ok: false, error: "invalid-timezone" };
+    const settings = await mutateSettings(() => msg.settings || {});
+    return { ok: true, settings };
   }
-
-  if (msg?.action === "tzc:add-excluded-site") {
+  if (msg.action === "tzc:add-excluded-site") {
     const hostname = String(msg.hostname || "").trim().toLowerCase();
-    if (!hostname) {
-      sendResponse({ ok: false });
-      return false;
-    }
-    getSettings()
-      .then((settings) => {
-        if (!settings.excludedDomains.includes(hostname)) settings.excludedDomains.push(hostname);
-        return setSettings(settings);
-      })
-      .then((settings) => sendResponse({ ok: true, settings }));
-    return true;
+    if (!hostname) return { ok: false, error: "empty-pattern" };
+    const settings = await mutateSettings((settings) => {
+      if (!settings.excludedDomains.includes(hostname)) settings.excludedDomains.push(hostname);
+      return settings;
+    });
+    return { ok: true, settings };
   }
-
-  if (msg?.action === "tzc:set-site-rule") {
+  if (msg.action === "tzc:set-site-rule") {
     const pattern = String(msg.pattern || "").trim().toLowerCase();
-    if (!pattern) {
-      sendResponse({ ok: false, error: "empty-pattern" });
-      return false;
-    }
-    getSettings()
-      .then((settings) => {
-        const rule = msg.rule || {};
-        if (rule.mode === "auto" && !rule.timezone) {
-          delete settings.siteRules[pattern];
-        } else {
-          settings.siteRules[pattern] = {
-            mode: rule.mode === "disable" || rule.mode === "fixed" ? rule.mode : "auto",
-            timezone: rule.mode === "fixed" ? String(rule.timezone || "").trim() : ""
-          };
-        }
-        return setSettings(settings);
-      })
-      .then((settings) => sendResponse({ ok: true, settings }));
-    return true;
+    if (!pattern) return { ok: false, error: "empty-pattern" };
+    const rule = msg.rule || {};
+    if (invalidFixedRule(rule)) return { ok: false, error: "invalid-timezone" };
+    const settings = await mutateSettings((settings) => {
+      if (rule.mode === "inherit") delete settings.siteRules[pattern];
+      else settings.siteRules[pattern] = {
+        mode: rule.mode === "disable" || rule.mode === "fixed" ? rule.mode : "auto",
+        timezone: rule.mode === "fixed" ? String(rule.timezone || "").trim() : ""
+      };
+      return settings;
+    });
+    return { ok: true, settings };
   }
+  if (msg.action === "tzc:set-tab-rule") {
+    const tabId = Number(msg.tabId ?? sender?.tab?.id);
+    if (!Number.isInteger(tabId) || tabId < 0) return { ok: false, error: "invalid-tab" };
+    if (invalidFixedRule(msg)) return { ok: false, error: "invalid-timezone" };
+    const state = await getTabState();
+    const entry = { ...state[tabId] };
+    if (msg.mode === "inherit") delete entry.tabOverride;
+    else entry.tabOverride = {
+      mode: msg.mode === "disable" || msg.mode === "fixed" ? msg.mode : "auto",
+      timezone: msg.mode === "fixed" ? String(msg.timezone || "").trim() : ""
+    };
+    state[tabId] = entry;
+    await persistTabState();
+    return { ok: true };
+  }
+  if (msg.action === "tzc:get-tab-status") {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab ? getTabStatus(tab) : { hostname: "", mode: "disable", shouldSpoof: false, timezone: SYSTEM_TIMEZONE };
+  }
+}
 
-  if (msg?.action === "tzc:set-tab-rule") {
-    const tabId = Number(msg.tabId || sender?.tab?.id);
-    if (!tabId) {
-      sendResponse({ ok: false });
-      return false;
-    }
-    getTabState()
-      .then(async (state) => {
-        const entry = state[tabId] || {};
-        const mode = msg.mode === "disable" || msg.mode === "fixed" ? msg.mode : "auto";
-        if (mode === "auto" && !msg.timezone) {
-          delete entry.tabOverride;
-        } else {
-          entry.tabOverride = {
-            mode,
-            timezone: mode === "fixed" ? String(msg.timezone || "").trim() : ""
-          };
-        }
-        state[tabId] = entry;
-        await persistTabState();
-        return true;
-      })
-      .then(() => sendResponse({ ok: true }));
-    return true;
-  }
-
-  if (msg?.action === "tzc:get-tab-status") {
-    chrome.tabs
-      .query({ active: true, currentWindow: true })
-      .then((tabs) => tabs[0] || null)
-      .then((tab) => (tab ? getTabStatus(tab) : { hostname: "", mode: "disable", shouldSpoof: false, timezone: SYSTEM_TIMEZONE }))
-      .then(sendResponse);
-    return true;
-  }
+const MESSAGE_ACTIONS = new Set(["refresh", "tzc:get-page-config", "tzc:net-active", "tzc:get-settings", "tzc:update-settings", "tzc:add-excluded-site", "tzc:set-site-rule", "tzc:set-tab-rule", "tzc:get-tab-status"]);
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!MESSAGE_ACTIONS.has(msg?.action)) return false;
+  handleMessage(msg, sender).then(sendResponse, (error) => {
+    reportFailure(error);
+    sendResponse({ ok: false, error: "storage-error" });
+  });
+  return true;
 });

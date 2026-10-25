@@ -89,6 +89,7 @@
       whitelistDomains: Array.isArray(raw?.whitelistDomains) ? raw.whitelistDomains.map((v) => String(v).trim()).filter(Boolean) : [],
       siteRules: {}
     };
+    safe.defaultMode = raw?.defaultMode === "disable" ? "disable" : "auto";
 
     if (raw?.siteRules && typeof raw.siteRules === "object") {
       for (const [pattern, rule] of Object.entries(raw.siteRules)) {
@@ -121,6 +122,7 @@
     sanitizeSettings,
     isValidTimezone,
     matchesPattern,
+    findBestRule,
     resolveHostnameBehavior
   };
 })();
