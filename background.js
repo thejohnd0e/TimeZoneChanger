@@ -22,10 +22,11 @@ const APIS = [
 ];
 
 const CHECK_COOLDOWN = 10000;
+const API_TIMEOUT = 5000;
 const TAB_STATE_KEY = "tabStateV1";
 const SYSTEM_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-let isUpdating = false;
+let updatePromise = null;
 let lastCheckTime = 0;
 let tabStateCache = null;
 let tabStateLoad = null;
@@ -99,9 +100,10 @@ function pickModeTimezone(tabStateEntry, behavior, runtimeTimezone) {
 }
 
 async function getPageConfig(tabId, hostname) {
-  const [settings, runtime, state] = await Promise.all([getSettings(), getRuntimeState(), getTabState()]);
+  const [settings, initialRuntime, state] = await Promise.all([getSettings(), getRuntimeState(), getTabState()]);
+  let runtime = initialRuntime;
   const behavior = TZC_SHARED.resolveHostnameBehavior(hostname, settings);
-  const tabEntry = state[tabId] || {};
+  let tabEntry = state[tabId] || {};
 
   if (behavior.mode === "disable" && !tabEntry.tabOverride) {
     return {
@@ -112,8 +114,14 @@ async function getPageConfig(tabId, hostname) {
     };
   }
 
-  const selection = pickModeTimezone(tabEntry, behavior, runtime.timezone);
-  if (selection.mode === "auto") {
+  const mode = tabEntry.tabOverride?.mode || behavior.mode;
+  if (mode === "auto" && !TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) && !TZC_SHARED.isValidTimezone(runtime.timezone)) {
+    await updateTimezone();
+    runtime = await getRuntimeState();
+    tabEntry = state[tabId] || {};
+  }
+  const selection = pickModeTimezone(tabEntry, behavior, TZC_SHARED.isValidTimezone(runtime.timezone) ? runtime.timezone : "");
+  if (selection.mode === "auto" && (TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) || TZC_SHARED.isValidTimezone(runtime.timezone))) {
     state[tabId] = {
       ...tabEntry,
       lockedTimezone: selection.timezone
@@ -144,20 +152,21 @@ async function getTabStatus(tab) {
 }
 
 async function updateTimezone(force = false) {
-  if (isUpdating) return false;
+  if (updatePromise) return updatePromise;
   const now = Date.now();
   if (!force && now - lastCheckTime < CHECK_COOLDOWN) return false;
 
-  isUpdating = true;
   lastCheckTime = now;
-  try {
+  updatePromise = (async () => {
     for (const api of APIS) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), API_TIMEOUT);
       try {
-        const response = await fetch(api.url, { cache: "no-store" });
+        const response = await fetch(api.url, { cache: "no-store", signal: controller.signal });
         if (!response.ok) continue;
         const data = await response.json();
         const parsed = api.parse(data);
-        if (!parsed.timezone) continue;
+        if (!TZC_SHARED.isValidTimezone(parsed.timezone)) continue;
 
         const stored = await getRuntimeState();
         const changed = stored.ip !== parsed.ip || stored.timezone !== parsed.timezone;
@@ -176,18 +185,23 @@ async function updateTimezone(force = false) {
         return true;
       } catch (err) {
         console.warn(`[TZ] API ${api.url} failed:`, err?.message || err);
+      } finally {
+        clearTimeout(timer);
       }
     }
+    return false;
+  })();
+  try {
+    return await updatePromise;
   } finally {
-    isUpdating = false;
+    updatePromise = null;
   }
-  return false;
 }
 
 async function initialize() {
+  chrome.alarms.create("check-ip-periodic", { periodInMinutes: 1 });
   await getSettings();
   await updateTimezone(true);
-  chrome.alarms.create("check-ip-periodic", { periodInMinutes: 1 });
 }
 
 chrome.runtime.onInstalled.addListener(() => {

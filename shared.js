@@ -105,10 +105,21 @@
     return safe;
   }
 
+  function isValidTimezone(value) {
+    if (typeof value !== "string" || !value.trim()) return false;
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: value });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   globalThis.TZC_SHARED = {
     DEFAULT_EXCLUDED_DOMAINS,
     DEFAULT_SETTINGS,
     sanitizeSettings,
+    isValidTimezone,
     matchesPattern,
     resolveHostnameBehavior
   };
