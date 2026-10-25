@@ -42,3 +42,35 @@ test('older persist cannot overwrite a newer state', async () => {
   await Promise.all([a,b]);
   assert.deepEqual(Object.keys(bg.data.session.tabStateV1).sort(), ['1','2']);
 });
+
+test('rejected tab save never becomes active or persists through another tab', async () => {
+  let fail=true;
+  const bg=backgroundContext({beforeSet:area=>{if(area==='session'&&fail){fail=false;throw new Error('write rejected');}}});
+  const result=await bg.message({action:'tzc:set-tab-rule',tabId:1,mode:'fixed',timezone:'Asia/Tokyo'});
+  assert.equal(result.ok,false);
+  assert.equal((await bg.run('getPageConfig(1,"example.com")')).timezone,'Europe/Berlin');
+  await bg.run('getPageConfig(2,"example.com")');
+  assert.equal(bg.data.session.tabStateV1[1].tabOverride,undefined);
+  const restart=backgroundContext({data:bg.data});
+  assert.equal((await restart.run('getPageConfig(1,"example.com")')).timezone,'Europe/Berlin');
+});
+
+test('failed transaction cannot roll back another concurrently saved rule', async () => {
+  let fail=true;
+  const bg=backgroundContext({beforeSet:area=>{if(area==='session'&&fail){fail=false;throw new Error('write rejected');}}});
+  const [a,b]=await Promise.all([
+    bg.message({action:'tzc:set-tab-rule',tabId:1,mode:'fixed',timezone:'Asia/Tokyo'}),
+    bg.message({action:'tzc:set-tab-rule',tabId:2,mode:'fixed',timezone:'UTC'})
+  ]);
+  assert.equal(a.ok,false);assert.equal(b.ok,true);
+  assert.equal(bg.data.session.tabStateV1[1]?.tabOverride,undefined);
+  assert.equal(bg.data.session.tabStateV1[2].tabOverride.timezone,'UTC');
+});
+
+test('failed lock persistence does not retain a rejected lock in memory', async () => {
+  let fail=true;
+  const bg=backgroundContext({beforeSet:area=>{if(area==='session'&&fail){fail=false;throw new Error('write rejected');}}});
+  await assert.rejects(bg.run('getPageConfig(1,"example.com")'),/write rejected/);
+  bg.data.local.timezone='Asia/Tokyo';
+  assert.equal((await bg.run('getPageConfig(1,"example.com")')).timezone,'Asia/Tokyo');
+});

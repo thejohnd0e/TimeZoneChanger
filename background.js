@@ -30,7 +30,7 @@ let updatePromise = null;
 let lastCheckTime = 0;
 let tabStateCache = null;
 let tabStateLoad = null;
-let tabStateWrites = Promise.resolve();
+let tabStateMutations = Promise.resolve();
 
 async function getSettings() {
   const { settings } = await chrome.storage.sync.get("settings");
@@ -60,21 +60,25 @@ async function getTabState() {
   return tabStateLoad;
 }
 
-async function persistTabState() {
-  if (!tabStateCache) return;
-  const write = tabStateWrites.catch(() => {}).then(() =>
-    chrome.storage.session.set({ [TAB_STATE_KEY]: tabStateCache })
-  );
-  tabStateWrites = write;
-  await write;
+function mutateTabState(change) {
+  const mutation = tabStateMutations.catch(() => {}).then(async () => {
+    const state = await getTabState();
+    const next = structuredClone(state);
+    if (change(next) === false) return;
+    await chrome.storage.session.set({ [TAB_STATE_KEY]: next });
+    // Publish only committed state. Failed writes must never become active or
+    // hitchhike on a later tab's successful persistence.
+    tabStateCache = next;
+  });
+  tabStateMutations = mutation;
+  return mutation;
 }
 
 async function clearTabState(tabId) {
-  const state = await getTabState();
-  if (state[tabId]) {
+  await mutateTabState((state) => {
+    if (!state[tabId]) return false;
     delete state[tabId];
-    await persistTabState();
-  }
+  });
 }
 
 function getHostname(url) {
@@ -116,23 +120,20 @@ async function getPageConfig(tabId, hostname) {
   if (mode === "auto" && !TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) && !TZC_SHARED.isValidTimezone(runtime.timezone)) {
     await updateTimezone();
     runtime = await getRuntimeState();
-    tabEntry = state[tabId] || {};
+    tabEntry = (await getTabState())[tabId] || {};
   }
-  const selection = pickModeTimezone(tabEntry, behavior, TZC_SHARED.isValidTimezone(runtime.timezone) ? runtime.timezone : "");
+  const runtimeTimezone = TZC_SHARED.isValidTimezone(runtime.timezone) ? runtime.timezone : "";
+  let selection = pickModeTimezone(tabEntry, behavior, runtimeTimezone);
+  if (selection.mode === "auto" && (TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) || runtimeTimezone)) {
+    await mutateTabState((state) => {
+      tabEntry = state[tabId] || {};
+      selection = pickModeTimezone(tabEntry, behavior, runtimeTimezone);
+      if (selection.mode !== "auto" || TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone)) return false;
+      state[tabId] = { ...tabEntry, lockedTimezone: selection.timezone };
+    });
+  }
   if (selection.mode === "fixed" && !TZC_SHARED.isValidTimezone(selection.timezone)) {
     return { shouldSpoof: false, mode: "disable", timezone: SYSTEM_TIMEZONE, source: tabEntry.tabOverride ? "tabOverride" : behavior.source, error: "invalid-timezone" };
-  }
-  if (selection.mode === "auto" && (TZC_SHARED.isValidTimezone(tabEntry.lockedTimezone) || TZC_SHARED.isValidTimezone(runtime.timezone))) {
-    state[tabId] = {
-      ...tabEntry,
-      lockedTimezone: selection.timezone
-    };
-    await persistTabState();
-  } else if (tabEntry.lockedTimezone) {
-    state[tabId] = {
-      ...tabEntry,
-      lockedTimezone: tabEntry.lockedTimezone
-    };
   }
 
   return {
@@ -278,15 +279,15 @@ async function handleMessage(msg, sender) {
     const tabId = Number(msg.tabId ?? sender?.tab?.id);
     if (!Number.isInteger(tabId) || tabId < 0) return { ok: false, error: "invalid-tab" };
     if (invalidFixedRule(msg)) return { ok: false, error: "invalid-timezone" };
-    const state = await getTabState();
-    const entry = { ...state[tabId] };
-    if (msg.mode === "inherit") delete entry.tabOverride;
-    else entry.tabOverride = {
-      mode: msg.mode === "disable" || msg.mode === "fixed" ? msg.mode : "auto",
-      timezone: msg.mode === "fixed" ? String(msg.timezone || "").trim() : ""
-    };
-    state[tabId] = entry;
-    await persistTabState();
+    await mutateTabState((state) => {
+      const entry = { ...state[tabId] };
+      if (msg.mode === "inherit") delete entry.tabOverride;
+      else entry.tabOverride = {
+        mode: msg.mode === "disable" || msg.mode === "fixed" ? msg.mode : "auto",
+        timezone: msg.mode === "fixed" ? String(msg.timezone || "").trim() : ""
+      };
+      state[tabId] = entry;
+    });
     return { ok: true };
   }
   if (msg.action === "tzc:get-tab-status") {

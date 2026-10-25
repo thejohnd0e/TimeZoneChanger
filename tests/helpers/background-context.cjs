@@ -36,7 +36,7 @@ function backgroundContext(options = {}) {
     tabs:{onRemoved:event('removed'),async query(){return [{id:1,url:'https://example.com/'}];}}
   };
   const context = vm.createContext({
-    chrome, URL, AbortController,
+    chrome, URL, AbortController, structuredClone,
     console:{log(){},warn(){}},
     setTimeout: options.setTimeout || setTimeout, clearTimeout,
     fetch: options.fetch || (async()=>{throw new Error('offline');}),
