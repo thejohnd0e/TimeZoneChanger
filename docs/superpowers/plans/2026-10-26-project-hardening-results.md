@@ -133,14 +133,14 @@
   400-летнем цикле без преждевременного TimeClip, затем применяет timezone и
   проверяет representable candidates. Проверены обе границы в New York,
   Kathmandu, Lord Howe и UTC.
-- Новый итоговый набор после этого follow-up: **130/130**, включая browser smoke
-  и все прежние regressions. Самый свежий запуск полного набора: **130/130**.
+- Новый итоговый набор после этого follow-up: **138/138**, включая browser smoke
+  и все прежние regressions. Самый свежий запуск полного набора: **138/138**.
 - Ранняя инъекция не менялась; её отдельный scope и acceptance criteria добавлены
   в основной план выше.
 
 ## Окончательная проверка
 
-- `node --test tests/*.test.cjs`: **124/124**, ноль failed/skipped/cancelled.
+- `node --test tests/*.test.cjs`: **138/138**, ноль failed/skipped/cancelled.
 - Повторный `node tests/browser-smoke.cjs` после исправлений ревью: успешно,
   Chrome 156, тот же набор сценариев, список ошибок страниц пуст.
 - Все JS/CJS проходят `node --check`; ресурсы manifest существуют.
