@@ -122,6 +122,22 @@
 - Реальные VPN/Google flows и Chrome worker termination/offline не подменяются
   результатами mocks. Цена — эти сценарии остаются на ручную приёмку.
 
+## Дополнение пользователя: два оставшихся Date случая
+
+Пользователь поручил исправить обе проблемы, оставить раннюю инъекцию будущим
+этапом плана. Добавлены отдельные differential-тесты и исправления:
+
+- invalid `Date` locale methods теперь делегируют нативному методу до чтения
+  options; проверяются `null`, throwing getter и некорректный Date receiver.
+- Multi-argument local Date construction сначала нормализует wall time в
+  400-летнем цикле без преждевременного TimeClip, затем применяет timezone и
+  проверяет representable candidates. Проверены обе границы в New York,
+  Kathmandu, Lord Howe и UTC.
+- Новый итоговый набор после этого follow-up: **130/130**, включая browser smoke
+  и все прежние regressions. Самый свежий запуск полного набора: **130/130**.
+- Ранняя инъекция не менялась; её отдельный scope и acceptance criteria добавлены
+  в основной план выше.
+
 ## Окончательная проверка
 
 - `node --test tests/*.test.cjs`: **124/124**, ноль failed/skipped/cancelled.

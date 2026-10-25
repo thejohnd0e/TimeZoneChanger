@@ -57,3 +57,16 @@ test('Intl reads a timezone getter only once and keeps that value', () => {
   const run=pageContext('America/New_York');
   assert.equal(run('(()=>{let calls=0; const options={get timeZone(){return ++calls===1?"UTC":undefined;}};const format=new Intl.DateTimeFormat("en",options);return `${format.resolvedOptions().timeZone}:${calls}`;})()'),'UTC:1');
 });
+
+test('invalid Date locale formatting returns Invalid Date before inspecting options', () => {
+  const run=pageContext();
+  for(const method of ['toLocaleString','toLocaleDateString','toLocaleTimeString']) {
+    assert.equal(run(`new Date(NaN).${method}("en", null)`),'Invalid Date');
+    assert.equal(run(`new Date(NaN).${method}("en", {get timeZone(){throw new Error("must not read");}})`),'Invalid Date');
+  }
+});
+
+test('invalid Date locale formatting still validates the Date receiver first', () => {
+  const run=pageContext();
+  assert.throws(()=>run('Date.prototype.toLocaleString.call({}, null)'),{name:'TypeError'});
+});

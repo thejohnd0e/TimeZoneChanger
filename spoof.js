@@ -36,8 +36,9 @@
   // Overlap: choose the earlier instant. Gap: advance by the transition gap.
   function fromLocalTime(wallTime) {
     if (!Number.isFinite(wallTime)) return NaN;
-    const offsets = new Set([-2, 0, 2].map((days) => getOffsetMilliseconds(Math.max(-8640000000000000, Math.min(8640000000000000, wallTime + days * 86400000)))));
-    const candidates = [...offsets].map((offset) => wallTime + offset).filter(Number.isFinite);
+    const limit = 8640000000000000;
+    const offsets = new Set([-2, 0, 2].map((days) => getOffsetMilliseconds(Math.max(-limit, Math.min(limit, wallTime + days * 86400000)))));
+    const candidates = [...offsets].map((offset) => wallTime + offset).filter((ts) => Number.isFinite(ts) && Math.abs(ts) <= limit);
     const exact = candidates.filter((ts) => ts - getOffsetMilliseconds(ts) === wallTime);
     if (exact.length) return Math.min(...exact);
     const after = candidates.map((ts) => ({ ts, delta: ts - getOffsetMilliseconds(ts) - wallTime }))
@@ -100,6 +101,15 @@
 
   const toLocaleLike = (original) =>
     function (locales, options) {
+      // Native Date locale methods return Invalid Date before converting options.
+      try {
+        if (Number.isNaN(OriginalDate.prototype.getTime.call(this))) {
+          return original.call(this, locales, options);
+        }
+      } catch (_) {
+        // Let the native method preserve its incompatible-receiver error.
+        return original.call(this, locales, options);
+      }
       return original.call(this, locales, timezoneOptions(options));
     };
 
@@ -189,11 +199,22 @@
     throw new TypeError("Cannot convert object to primitive value");
   }
 
+  function localTimeFromComponents(args) {
+    const values = args.map((value) => Number(value));
+    let year = Math.trunc(values[0]);
+    if (year >= 0 && year <= 99) year += 1900;
+    const cycles = Math.floor((year - 2000) / 400);
+    const reducedYear = year - cycles * 400;
+    const utcWallTime = OriginalDate.UTC(reducedYear, ...values.slice(1));
+    if (!Number.isFinite(utcWallTime)) return NaN;
+    return fromLocalTime(utcWallTime + cycles * 146097 * 86400000);
+  }
+
   const DateProxy = new Proxy(OriginalDate, {
     apply() { return new OriginalDate().toString(); },
     construct(target, args, newTarget) {
       if (args.length === 0) return Reflect.construct(target, [], newTarget);
-      if (args.length >= 2) return Reflect.construct(target, [fromLocalTime(OriginalDate.UTC(...args.slice(0, 7)))], newTarget);
+      if (args.length >= 2) return Reflect.construct(target, [localTimeFromComponents(args.slice(0, 7))], newTarget);
       let value;
       // Native Date copies another Date's internal timestamp without coercion.
       try { value = OriginalDate.prototype.getTime.call(args[0]); }

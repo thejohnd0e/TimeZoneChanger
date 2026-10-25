@@ -31,6 +31,9 @@ const cases=[
   ,['Date range boundaries', '[8640000000000000,-8640000000000000].map(t=>{const d=new Date(t);return [d.getFullYear(),d.getMonth(),d.getDate(),d.getDay(),d.getHours(),d.getMinutes(),d.getSeconds(),d.getMilliseconds(),d.getTimezoneOffset()];})']
   ,['setter truncates before year remapping', '[new Date(99.9,0,1).getTime(),new Date(-0.9,0,1).getTime()]']
   ,['Date copy bypasses primitive conversion', '(()=>{const d=new Date(123);d[Symbol.toPrimitive]=()=>{throw new Error("wrong coercion");};return new Date(d).getTime();})()']
+  ,['upper TimeClip local construction follows native clipping', 'new Date(275760,8,13).getTime()']
+  ,['upper TimeClip valid local construction stays representable', 'new Date(275760,8,13,1).getTime()']
+  ,['lower TimeClip local construction follows native clipping', 'new Date(-271821,3,20).getTime()']
 ];
 
 for(const zone of ['America/New_York','Asia/Kathmandu','Australia/Lord_Howe','UTC']) {
