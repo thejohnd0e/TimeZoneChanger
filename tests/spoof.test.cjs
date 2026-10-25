@@ -35,3 +35,8 @@ test('Intl preserves native invalid-option errors and explicit timezone', () => 
   assert.throws(() => run('new Intl.DateTimeFormat("en", null)'), {name:'TypeError'});
   assert.equal(run('Intl.DateTimeFormat("en", {timeZone:"UTC"}).resolvedOptions().timeZone'), 'UTC');
 });
+
+test('pre-existing formatter does not lie about its explicit timezone', () => {
+  const run=pageContext('America/New_York','oldFormat = new Intl.DateTimeFormat("en", {timeZone:"Asia/Tokyo"})');
+  assert.equal(run('oldFormat.resolvedOptions().timeZone'),'Asia/Tokyo');
+});
