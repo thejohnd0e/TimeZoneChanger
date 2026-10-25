@@ -38,9 +38,24 @@ On these hosts the extension falls back to real system timezone behavior.
 Rules are resolved in this order:
 
 1. Per-tab override
-2. Per-site rule
-3. Exclusion / whitelist decision
+2. Exclusion / whitelist decision
+3. Per-site rule (most specific matching pattern)
 4. Global default mode (`auto`)
+
+A per-tab override can explicitly bypass an exclusion. A site rule cannot.
+`*.example.com` matches subdomains, not the apex `example.com`; add that domain
+separately if needed. Existing protected-domain defaults are unchanged.
+
+**Auto locks:** a successfully detected timezone stays locked for the lifetime of
+the tab, including reloads and navigation. Refreshing IP data does not change an
+existing lock; open a new tab to use the new timezone. On first detection failure,
+the system timezone is a temporary fallback and is not locked. Reload that page
+after IP detection recovers to apply the newly available timezone.
+
+**Rule editing:** `Auto by IP` is an explicit rule. `Use inherited policy` removes
+the exact site rule; `Use site/default policy` removes the tab override. A broader
+wildcard site rule can still apply after removing an exact rule. Reload affected
+pages after changing settings; applying a tab rule reloads the tab automatically.
 
 ## Storage Model
 

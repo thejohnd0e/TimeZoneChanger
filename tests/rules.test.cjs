@@ -67,3 +67,27 @@ test('storage failure returns an actionable error response', async () => {
   assert.equal(result.ok,false);
   assert.equal(result.error,'storage-error');
 });
+
+test('exclusion/whitelist decisions precede site rules, while tab override wins', async () => {
+  const bg=backgroundContext();
+  const settings=bg.data.sync.settings;
+  settings.excludedDomains=['excluded.example'];
+  settings.whitelistDomains=['allowed.example'];
+  settings.siteRules={
+    'excluded.example':{mode:'fixed',timezone:'Asia/Tokyo'},
+    'outside.example':{mode:'fixed',timezone:'Asia/Tokyo'},
+    '*':{mode:'disable'},'allowed.example':{mode:'fixed',timezone:'UTC'}
+  };
+  assert.equal((await bg.run('getPageConfig(1,"excluded.example")')).source,'excluded');
+  assert.equal((await bg.run('getPageConfig(2,"outside.example")')).source,'whitelist');
+  assert.equal((await bg.run('getPageConfig(3,"allowed.example")')).timezone,'UTC');
+  await bg.message({action:'tzc:set-tab-rule',tabId:1,mode:'fixed',timezone:'Asia/Tokyo'});
+  assert.equal((await bg.run('getPageConfig(1,"excluded.example")')).timezone,'Asia/Tokyo');
+});
+
+test('wildcards do not include the apex domain and default protection is retained', () => {
+  const bg=backgroundContext();
+  assert.equal(bg.run('TZC_SHARED.matchesPattern("google.com","*.google.com")'),false);
+  assert.equal(bg.run('TZC_SHARED.resolveHostnameBehavior("gemini.google.com", TZC_SHARED.DEFAULT_SETTINGS).source'),'excluded');
+  assert.equal(bg.run('TZC_SHARED.resolveHostnameBehavior("google.com", TZC_SHARED.DEFAULT_SETTINGS).mode'),'auto');
+});
