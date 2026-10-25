@@ -129,6 +129,9 @@ timezone aliases (for example `Asia/Kathmandu` to `Asia/Katmandu`).
   date-string parsing is engine-specific; standard ISO and common legacy forms,
   local setters and DST transitions have regression coverage, not a guarantee
   of compatibility with every exotic Date use.
+- Two edge cases remain: local construction near Date's ±8.64e15 ms range can
+  yield a different Invalid Date/error result, and locale methods on Invalid Date
+  inspect options earlier than native (for example `null` can throw).
 - `inject.js` is a legacy reference and has no runtime effect.
 
 ## License
