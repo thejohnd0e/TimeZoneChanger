@@ -46,3 +46,14 @@ test('timezone spoofing does not wrap unrelated network APIs', () => {
   assert.equal(run('fetch === savedFetch'),true);
   assert.equal(run('XMLHttpRequest.prototype.send === savedSend'),true);
 });
+
+test('Intl option accessors keep their original receiver', () => {
+  const run=pageContext('America/New_York');
+  assert.equal(run('(()=>{class Options { #zone="UTC"; get timeZone(){return this.#zone;} } return new Intl.DateTimeFormat("en", new Options()).resolvedOptions().timeZone;})()'),'UTC');
+  assert.equal(run('(()=>{class Options { #zone="UTC"; get timeZone(){return this.#zone;} } return new Date("2026-01-15T12:00:00Z").toLocaleTimeString("en-US", new Options());})()'),'12:00:00 PM');
+});
+
+test('Intl reads a timezone getter only once and keeps that value', () => {
+  const run=pageContext('America/New_York');
+  assert.equal(run('(()=>{let calls=0; const options={get timeZone(){return ++calls===1?"UTC":undefined;}};const format=new Intl.DateTimeFormat("en",options);return `${format.resolvedOptions().timeZone}:${calls}`;})()'),'UTC:1');
+});

@@ -87,11 +87,15 @@
 
   function timezoneOptions(options) {
     if (options === null) throw new TypeError("Options cannot be null");
-    const next = Object.create(options === undefined ? null : Object(options));
-    if (next.timeZone === undefined) {
-      Object.defineProperty(next, "timeZone", { value: targetTimezone, configurable: true });
-    }
-    return next;
+    const source = options === undefined ? Object.create(null) : Object(options);
+    // Native Intl decides which properties to read and in what order. Forward
+    // getters to the original receiver; do not read timeZone eagerly or twice.
+    return new Proxy(Object.create(null), {
+      get(_, key) {
+        const value = Reflect.get(source, key, source);
+        return key === "timeZone" && value === undefined ? targetTimezone : value;
+      }
+    });
   }
 
   const toLocaleLike = (original) =>
