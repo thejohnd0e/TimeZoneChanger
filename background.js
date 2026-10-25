@@ -31,7 +31,6 @@ let lastCheckTime = 0;
 let tabStateCache = null;
 let tabStateLoad = null;
 let tabStateWrites = Promise.resolve();
-const busyTabs = new Set();
 
 async function getSettings() {
   const { settings } = await chrome.storage.sync.get("settings");
@@ -76,7 +75,6 @@ async function clearTabState(tabId) {
     delete state[tabId];
     await persistTabState();
   }
-  busyTabs.delete(Number(tabId));
 }
 
 function getHostname(url) {
@@ -243,12 +241,6 @@ async function handleMessage(msg, sender) {
     }
     return getPageConfig(tabId, hostname);
   }
-  if (msg.action === "tzc:net-active") {
-    const tabId = sender?.tab?.id;
-    if (msg.active) busyTabs.add(tabId);
-    else busyTabs.delete(tabId);
-    return { ok: true };
-  }
   if (msg.action === "tzc:get-settings") {
     const [settings, runtime] = await Promise.all([getSettings(), getRuntimeState()]);
     return { settings, runtime, systemTimezone: SYSTEM_TIMEZONE };
@@ -303,7 +295,7 @@ async function handleMessage(msg, sender) {
   }
 }
 
-const MESSAGE_ACTIONS = new Set(["refresh", "tzc:get-page-config", "tzc:net-active", "tzc:get-settings", "tzc:update-settings", "tzc:add-excluded-site", "tzc:set-site-rule", "tzc:set-tab-rule", "tzc:get-tab-status"]);
+const MESSAGE_ACTIONS = new Set(["refresh", "tzc:get-page-config", "tzc:get-settings", "tzc:update-settings", "tzc:add-excluded-site", "tzc:set-site-rule", "tzc:set-tab-rule", "tzc:get-tab-status"]);
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!MESSAGE_ACTIONS.has(msg?.action)) return false;
   handleMessage(msg, sender).then(sendResponse, (error) => {

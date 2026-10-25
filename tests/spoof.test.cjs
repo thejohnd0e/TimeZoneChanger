@@ -40,3 +40,9 @@ test('pre-existing formatter does not lie about its explicit timezone', () => {
   const run=pageContext('America/New_York','oldFormat = new Intl.DateTimeFormat("en", {timeZone:"Asia/Tokyo"})');
   assert.equal(run('oldFormat.resolvedOptions().timeZone'),'Asia/Tokyo');
 });
+
+test('timezone spoofing does not wrap unrelated network APIs', () => {
+  const run=pageContext('UTC','savedFetch = fetch = () => Promise.resolve(); savedSend = XMLHttpRequest.prototype.send;');
+  assert.equal(run('fetch === savedFetch'),true);
+  assert.equal(run('XMLHttpRequest.prototype.send === savedSend'),true);
+});

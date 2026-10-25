@@ -1,3 +1,4 @@
+// Legacy reference only. Not loaded by manifest.json; live logic is spoof.js.
 (function () {
     const targetTimezone = window.__SPOOF_TZ__;
     if (!targetTimezone) return;

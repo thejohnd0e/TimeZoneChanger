@@ -136,6 +136,29 @@ async function main() {
     await cdp.send('Page.reload',{},normal.sessionId);
     await until(()=>cdp.evaluate(normal.sessionId,`Intl.DateTimeFormat().resolvedOptions().timeZone === ${JSON.stringify(kathmandu)}`),'tab inheritance');
     results.ui.tabRules='disable/fixed/inherit verified';
+    async function settings(value) {
+      const result=await message({action:'tzc:update-settings',settings:{defaultMode:'auto',excludedDomains:[],whitelistDomains:[],siteRules:{},...value}});
+      assert.equal(result.ok,true);
+    }
+    async function reloadTimezone(tab,timezone) {
+      await cdp.send('Page.reload',{},tab.sessionId);
+      await until(()=>cdp.evaluate(tab.sessionId,`document.readyState === 'complete' && Intl.DateTimeFormat().resolvedOptions().timeZone === ${JSON.stringify(timezone)}`),'reloaded timezone '+timezone);
+    }
+    const systemTimezone=await cdp.evaluate(options.sessionId,'Intl.DateTimeFormat().resolvedOptions().timeZone');
+    await settings({excludedDomains:['127.0.0.1'],siteRules:{'*':{mode:'fixed',timezone:'UTC'}}});
+    await reloadTimezone(normal,systemTimezone);
+    await settings({whitelistDomains:['not-this-site.example'],siteRules:{'*':{mode:'fixed',timezone:'UTC'}}});
+    await reloadTimezone(normal,systemTimezone);
+    await settings({});
+    await cdp.evaluate(options.sessionId,'chrome.storage.local.set({timezone:"Europe/Berlin"})');
+    await reloadTimezone(normal,'Europe/Berlin');
+    await cdp.evaluate(options.sessionId,'chrome.storage.local.set({timezone:"Asia/Tokyo"})');
+    await reloadTimezone(normal,'Europe/Berlin');
+    const fresh=await page(`http://127.0.0.1:${server.address().port}/fresh`);
+    await until(()=>cdp.evaluate(fresh.sessionId,'Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Tokyo"'),'new auto tab timezone');
+    await cdp.send('Target.closeTarget',{targetId:fresh.targetId});
+    results.ui.exclusionWhitelist='both take precedence over site rules';
+    results.ui.autoLock='reload retains confirmed zone; new tab uses updated runtime';
     results.errors=cdp.events.filter(e=>e.method==='Runtime.exceptionThrown'||e.method==='Log.entryAdded'&&e.params.entry.level==='error').map(e=>e.params);
     console.log(JSON.stringify(results,null,2));
   } finally {

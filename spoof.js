@@ -5,23 +5,6 @@
 
   const OriginalDate = Date;
   const OriginalDateTimeFormat = Intl.DateTimeFormat;
-  const OriginalFetch = window.fetch;
-  let activeNetworkOps = 0;
-
-  function notifyNetwork(type) {
-    document.dispatchEvent(new CustomEvent("__tzc_network__", { detail: { type } }));
-  }
-
-  function beginNetworkOp() {
-    activeNetworkOps += 1;
-    if (activeNetworkOps === 1) notifyNetwork("start");
-  }
-
-  function endNetworkOp() {
-    activeNetworkOps = Math.max(0, activeNetworkOps - 1);
-    if (activeNetworkOps === 0) notifyNetwork("end");
-  }
-
   const offsetFormatter = new OriginalDateTimeFormat("en-US-u-ca-iso8601-nu-latn", {
     timeZone: targetTimezone, era: "short", year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
@@ -240,29 +223,4 @@
     writable: true
   });
 
-  if (typeof OriginalFetch === "function") {
-    window.fetch = new Proxy(OriginalFetch, {
-      apply(target, thisArg, args) {
-        beginNetworkOp();
-        try {
-          const result = Reflect.apply(target, thisArg, args);
-          if (result && typeof result.finally === "function") {
-            return result.finally(endNetworkOp);
-          }
-          endNetworkOp();
-          return result;
-        } catch (err) {
-          endNetworkOp();
-          throw err;
-        }
-      }
-    });
-  }
-
-  const originalXhrSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.send = function () {
-    beginNetworkOp();
-    this.addEventListener("loadend", endNetworkOp, { once: true });
-    return originalXhrSend.apply(this, arguments);
-  };
 })();

@@ -90,6 +90,47 @@ pages after changing settings; applying a tab rule reloads the tab automatically
 - Supports all frames (`all_frames: true`)
 - Maintains MV3 compatibility
 
+## Development and verification
+
+No build step, package manager configuration or third-party test dependency is
+required. With Node.js 22 or newer:
+
+```powershell
+node --test tests/*.test.cjs
+```
+
+This runs isolated VM/Chrome-API-double regressions and native Date oracle checks
+in separate timezone-configured processes. It does not replace Chrome testing.
+
+```powershell
+node tests/browser-smoke.cjs
+```
+
+The optional integration probe uses installed Chrome and its DevTools protocol to
+load the unpacked extension in a **new temporary headless profile**, not your
+regular browser. On Windows it defaults to the standard Chrome installation;
+set `CHROME_PATH` for another installation. It needs a Chrome version supporting
+`Extensions.loadUnpacked` with `--enable-unsafe-extension-debugging`. Temporary
+profiles are retained under `%LOCALAPPDATA%\Temp\opencode\tzc-chrome-*` for diagnosis.
+
+The probe checks normal/strict-CSP pages, same/cross-origin frames, popup
+validation, site rules and tab disable/fixed/inherit. Chrome may canonicalize
+timezone aliases (for example `Asia/Kathmandu` to `Asia/Katmandu`).
+
+### Known limitations
+
+- Configuration and page-context injection are asynchronous. Early page scripts
+  can see system timezone and retain original constructors before spoofing starts.
+- Workers, `about:blank` and `srcdoc` frames are not spoofed by the current
+  injection path. This is not a comprehensive fingerprinting/privacy boundary.
+- Changes to settings require reload; changing an already-confirmed auto lock
+  requires a new tab.
+- Date/Intl patching cannot be indistinguishable from native APIs. Nonstandard
+  date-string parsing is engine-specific; standard ISO and common legacy forms,
+  local setters and DST transitions have regression coverage, not a guarantee
+  of compatibility with every exotic Date use.
+- `inject.js` is a legacy reference and has no runtime effect.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
