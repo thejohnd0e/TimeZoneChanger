@@ -28,6 +28,8 @@ const SYSTEM_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let isUpdating = false;
 let lastCheckTime = 0;
 let tabStateCache = null;
+let tabStateLoad = null;
+let tabStateWrites = Promise.resolve();
 const busyTabs = new Set();
 
 async function getSettings() {
@@ -49,14 +51,22 @@ async function getRuntimeState() {
 
 async function getTabState() {
   if (tabStateCache) return tabStateCache;
-  const fromSession = await chrome.storage.session.get(TAB_STATE_KEY);
-  tabStateCache = fromSession[TAB_STATE_KEY] && typeof fromSession[TAB_STATE_KEY] === "object" ? fromSession[TAB_STATE_KEY] : {};
-  return tabStateCache;
+  if (!tabStateLoad) {
+    tabStateLoad = chrome.storage.session.get(TAB_STATE_KEY).then((fromSession) => {
+      tabStateCache = fromSession[TAB_STATE_KEY] && typeof fromSession[TAB_STATE_KEY] === "object" ? fromSession[TAB_STATE_KEY] : {};
+      return tabStateCache;
+    }).finally(() => { tabStateLoad = null; });
+  }
+  return tabStateLoad;
 }
 
 async function persistTabState() {
   if (!tabStateCache) return;
-  await chrome.storage.session.set({ [TAB_STATE_KEY]: tabStateCache });
+  const write = tabStateWrites.catch(() => {}).then(() =>
+    chrome.storage.session.set({ [TAB_STATE_KEY]: tabStateCache })
+  );
+  tabStateWrites = write;
+  await write;
 }
 
 async function clearTabState(tabId) {
