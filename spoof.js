@@ -24,6 +24,7 @@
   }
 
   function getOffsetMinutes(ts) {
+    if (!Number.isFinite(ts)) return NaN;
     const formatter = new OriginalDateTimeFormat("en-US", {
       timeZone: targetTimezone,
       year: "numeric",
@@ -39,7 +40,7 @@
     let hour = get("hour");
     if (hour === 24) hour = 0;
     const localMs = OriginalDate.UTC(get("year"), get("month") - 1, get("day"), hour, get("minute"), get("second"));
-    return (ts - localMs) / 60000;
+    return (Math.floor(ts / 1000) * 1000 - localMs) / 60000;
   }
 
   function formatDate(ts) {
@@ -82,11 +83,18 @@
     };
   }
 
+  function timezoneOptions(options) {
+    if (options === null) throw new TypeError("Options cannot be null");
+    const next = Object.create(options === undefined ? null : Object(options));
+    if (next.timeZone === undefined) {
+      Object.defineProperty(next, "timeZone", { value: targetTimezone, configurable: true });
+    }
+    return next;
+  }
+
   const toLocaleLike = (original) =>
     function (locales, options) {
-      const next = Object.assign({}, options);
-      if (!next.timeZone) next.timeZone = targetTimezone;
-      return original.call(this, locales, next);
+      return original.call(this, locales, timezoneOptions(options));
     };
 
   Date.prototype.getTimezoneOffset = function () {
@@ -123,18 +131,16 @@
   const DateTimeFormatProxy = new Proxy(OriginalDateTimeFormat, {
     apply(target, thisArg, args) {
       const [locales, options] = args;
-      const opts = Object.assign({}, options);
-      const hasExplicit = opts.timeZone !== undefined;
-      if (!hasExplicit) opts.timeZone = targetTimezone;
+      const hasExplicit = options != null && options.timeZone !== undefined;
+      const opts = timezoneOptions(options);
       const instance = Reflect.apply(target, thisArg, [locales, opts]);
       if (hasExplicit) explicitTzInstances.add(instance);
       return instance;
     },
     construct(target, args, newTarget) {
       const [locales, options] = args;
-      const opts = Object.assign({}, options);
-      const hasExplicit = opts.timeZone !== undefined;
-      if (!hasExplicit) opts.timeZone = targetTimezone;
+      const hasExplicit = options != null && options.timeZone !== undefined;
+      const opts = timezoneOptions(options);
       const instance = Reflect.construct(target, [locales, opts], newTarget);
       if (hasExplicit) explicitTzInstances.add(instance);
       return instance;
