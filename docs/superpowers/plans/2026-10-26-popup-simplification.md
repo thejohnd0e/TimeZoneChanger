@@ -29,26 +29,26 @@
 
 Files: `background.js`, `tests/helpers/background-context.cjs`, `tests/rules.test.cjs`.
 
-- [ ] Add tests for supported http/https vs extension/chrome/about/file/data/Web Store URLs, no lock on unsupported status, and rejected tab save there.
-- [ ] Run `node --test tests/rules.test.cjs`; observe new regressions fail.
-- [ ] Update getHostname to enforce supported URLs, include supported/tabId in getTabStatus (including empty result), validate tab-rule targets via chrome.tabs.get.
-- [ ] Run full suite; old tests retain behavior for supported hosts. Commit task files.
+- [x] Add tests for supported http/https vs extension/chrome/about/file/data/Web Store URLs, no lock on unsupported status, and rejected tab save there.
+- [x] Run `node --test tests/rules.test.cjs`; observe new regressions fail (9 RED).
+- [x] Update getHostname to enforce supported URLs, include supported/tabId in getTabStatus (including empty result), validate tab-rule targets via chrome.tabs.get.
+- [x] Run full suite (147/147); old tests retain behavior for supported hosts. Commit task files (`282a5af`).
 
 ## Task 2: Single popup editor
 
 Files: `popup.js`, `popup.html`, `popup.css`, `tests/helpers/ui-context.cjs`, `tests/popup.test.cjs`.
 
-- [ ] Add behavioral tests for one editor, both scopes, independent drafts, failed saves, unsupported/loading/error disabled state and available Refresh/Options.
-- [ ] Run `node --test tests/popup.test.cjs`; new editor tests fail before implementation.
-- [ ] Replace duplicate forms with rule-scope/rule-mode/rule-timezone/apply-rule-btn. Keep current status and IP metadata; use status tabId directly. Apply reloads only the captured tab after successful save. Unsupported pages show Not available instead of a chosen timezone.
-- [ ] Add associated labels, concise scope/precedence hint and readable disabled state. Rename Options link. Preserve settings data and Options lists.
-- [ ] Run full suite; commit task files.
+- [x] Add behavioral tests for one editor, both scopes, independent drafts, failed saves, unsupported/loading/error disabled state and available Refresh/Options.
+- [x] Run `node --test tests/popup.test.cjs`; new editor tests fail before implementation (9 RED).
+- [x] Replace duplicate forms with rule-scope/rule-mode/rule-timezone/apply-rule-btn. Keep current status and IP metadata; use status tabId directly. Apply reloads only the captured tab after successful save. Unsupported pages show Not available instead of a chosen timezone.
+- [x] Add associated labels, concise scope/precedence hint and readable disabled state. Rename Options link. Preserve settings data and Options lists.
+- [x] Run full suite (157/157); commit task files (`1651d41`).
 
 ## Task 3: Chrome verification and docs
 
 Files: `tests/browser-smoke.cjs`, `README.md`, this plan.
 
-- [ ] Adapt real-browser UI actions to the single form; verify exactly one Apply editor, scope switch and save/reload, normal and unsupported extension/chrome pages, Refresh/Options available.
+- [x] Adapt real-browser UI actions to the single form; verify exactly one Apply editor, scope switch and save/reload, normal and unsupported extension/chrome pages, Refresh/Options available (Chrome 156; no page errors; preview visually inspected).
 - [ ] Run `node tests/browser-smoke.cjs`, full `node --test tests/*.test.cjs`, syntax and diff checks.
 - [ ] Update README popup description, commit, obtain one read-only final code review and fix concrete important findings with regression tests.
 - [ ] Report results and any unverified restrictions. Keep master and original user changes untouched.

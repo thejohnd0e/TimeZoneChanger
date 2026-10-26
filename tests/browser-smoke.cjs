@@ -104,26 +104,52 @@ async function main() {
       results.probes.at(-1).crossTimezone=crossTimezone;
     }
     const popup=await page(`chrome-extension://${id}/popup.html`);
+    await cdp.send('Target.activateTarget',{targetId:popup.targetId});
+    await cdp.evaluate(popup.sessionId,'updateUI()');
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("apply-rule-btn").disabled'),true);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("effective-timezone").textContent'),'Not available');
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.querySelectorAll("#apply-rule-btn").length'),1);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.querySelectorAll("#save-site-rule-btn, #save-tab-rule-btn, #add-exclusion-btn").length'),0);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("open-options-btn").disabled'),false);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("refresh-btn").disabled'),false);
+    const internal=await page('chrome://settings/');
+    await cdp.send('Target.activateTarget',{targetId:internal.targetId});
+    await cdp.evaluate(popup.sessionId,'updateUI()');
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("apply-rule-btn").disabled'),true);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("page-message").hidden'),false);
     const normalTabId=await cdp.evaluate(options.sessionId,`(async()=>{const tabs=await chrome.tabs.query({url:'http://127.0.0.1:${server.address().port}/normal'});await chrome.tabs.update(tabs[0].id,{active:true});return tabs[0].id;})()`);
     await cdp.evaluate(popup.sessionId,'updateUI()');
     assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("effective-timezone").textContent'),'Asia/Tokyo');
-    await cdp.evaluate(popup.sessionId,`document.getElementById('site-mode').value='fixed';document.getElementById('site-timezone').value='Not/AZone';document.getElementById('save-site-rule-btn').click()`);
+    assert.equal(await cdp.evaluate(popup.sessionId,'document.getElementById("rule-scope").value'),'site');
+    await cdp.evaluate(popup.sessionId,`document.getElementById('rule-mode').value='fixed';document.getElementById('rule-mode').dispatchEvent(new Event('change'));document.getElementById('rule-timezone').value='Not/AZone';document.getElementById('apply-rule-btn').click()`);
     await until(()=>cdp.evaluate(popup.sessionId,'document.getElementById("status-message").textContent.includes("valid timezone")'),'invalid UI timezone error');
-    await cdp.evaluate(popup.sessionId,`document.getElementById('site-timezone').value='Asia/Kathmandu';document.getElementById('save-site-rule-btn').click()`);
+    await cdp.evaluate(popup.sessionId,`document.getElementById('rule-timezone').value='Asia/Kathmandu';document.getElementById('apply-rule-btn').click()`);
     await until(()=>cdp.evaluate(popup.sessionId,'document.getElementById("status-message").textContent.includes("Saved")'),'saved UI site rule');
     const kathmandu=await cdp.evaluate(options.sessionId,'new Intl.DateTimeFormat("en", {timeZone:"Asia/Kathmandu"}).resolvedOptions().timeZone');
-    await cdp.send('Page.reload',{},normal.sessionId);
     try {
       await until(()=>cdp.evaluate(normal.sessionId,`Intl.DateTimeFormat().resolvedOptions().timeZone === ${JSON.stringify(kathmandu)}`),'saved site rule application');
     } catch(error) {
       console.error('UI diagnostic',JSON.stringify({
-        popup:await cdp.evaluate(popup.sessionId,'({currentHost,currentTabId,siteMode:document.getElementById("site-mode").value,status:document.getElementById("status-message").textContent})'),
+        popup:await cdp.evaluate(popup.sessionId,'({currentHost,currentTabId,scope:document.getElementById("rule-scope").value,mode:document.getElementById("rule-mode").value,status:document.getElementById("status-message").textContent})'),
         storage:await cdp.evaluate(options.sessionId,'chrome.storage.sync.get("settings")'),
         page:await cdp.evaluate(normal.sessionId,'({url:location.href,tz:Intl.DateTimeFormat().resolvedOptions().timeZone,marker:window.__TZ_SPOOFED__,dataset:document.documentElement.dataset.tzChanger})')
       }));
       throw error;
     }
-    results.ui={popupInvalidTimezone:'reported',siteSaveAndReload:'Asia/Kathmandu'};
+    results.ui={singleEditor:'one scoped form, old duplicated forms removed',unsupportedPages:'extension and chrome pages disabled',popupInvalidTimezone:'reported',siteSaveAndReload:'Asia/Kathmandu'};
+    async function applyPopupRule(scope,mode,timezone='') {
+      await cdp.evaluate(popup.sessionId,`document.getElementById('rule-scope').value=${JSON.stringify(scope)};document.getElementById('rule-scope').dispatchEvent(new Event('change'));document.getElementById('rule-mode').value=${JSON.stringify(mode)};document.getElementById('rule-mode').dispatchEvent(new Event('change'));document.getElementById('rule-timezone').value=${JSON.stringify(timezone)};document.getElementById('apply-rule-btn').click()`);
+      await until(()=>cdp.evaluate(popup.sessionId,'document.getElementById("status-message").textContent.includes("Saved")'),'saved scoped popup rule');
+    }
+    await applyPopupRule('tab','fixed','UTC');
+    await until(()=>cdp.evaluate(normal.sessionId,'Intl.DateTimeFormat().resolvedOptions().timeZone === "UTC"'),'popup tab fixed UTC');
+    await applyPopupRule('tab','inherit');
+    await until(()=>cdp.evaluate(normal.sessionId,`Intl.DateTimeFormat().resolvedOptions().timeZone === ${JSON.stringify(kathmandu)}`),'popup tab inheritance');
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:360,height:760,deviceScaleFactor:1,mobile:false},popup.sessionId);
+    const screenshot=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true},popup.sessionId);
+    const screenshotPath=path.join(tempRoot,'tzc-popup-preview.png');
+    fs.writeFileSync(screenshotPath,Buffer.from(screenshot.data,'base64'));
+    results.ui.preview=screenshotPath;
     const message=msg=>cdp.evaluate(options.sessionId,`chrome.runtime.sendMessage(${JSON.stringify(msg)})`);
     await message({action:'tzc:set-tab-rule',tabId:normalTabId,mode:'disable'});
     await cdp.send('Page.reload',{},normal.sessionId);

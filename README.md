@@ -53,9 +53,10 @@ the system timezone is a temporary fallback and is not locked. Reload that page
 after IP detection recovers to apply the newly available timezone.
 
 **Rule editing:** `Auto by IP` is an explicit rule. `Use inherited policy` removes
-the exact site rule; `Use site/default policy` removes the tab override. A broader
-wildcard site rule can still apply after removing an exact rule. Reload affected
-pages after changing settings; applying a tab rule reloads the tab automatically.
+the exact site rule or tab override, depending on the selected scope. A broader
+wildcard site rule can still apply after removing an exact rule. `Apply and reload`
+reloads the current tab after a successful save; other open tabs on that site still
+need their own reload. Settings changed in Options also require page reloads.
 
 ## Storage Model
 
@@ -68,8 +69,12 @@ pages after changing settings; applying a tab rule reloads the tab automatically
 - **Popup**
   - Current timezone/IP/location status
   - Current host + active mode
-  - Quick action: add current site to exclusions
-  - Quick per-site and per-tab mode controls
+  - One quick rule editor: choose This site / This tab only, mode and optional timezone
+  - Independent unsaved drafts when switching scope
+  - Apply and reload the current tab after a successful save
+  - All rules and exclusions opens the global Options page
+  - Rules disabled on extension, Chrome internal, Chrome Web Store and other
+    unsupported non-HTTP(S) pages; IP refresh and Options remain available
 - **Options page**
   - Manage excluded domains
   - Manage whitelist domains
@@ -129,9 +134,6 @@ timezone aliases (for example `Asia/Kathmandu` to `Asia/Katmandu`).
   date-string parsing is engine-specific; standard ISO and common legacy forms,
   local setters and DST transitions have regression coverage, not a guarantee
   of compatibility with every exotic Date use.
-- Two edge cases remain: local construction near Date's ±8.64e15 ms range can
-  yield a different Invalid Date/error result, and locale methods on Invalid Date
-  inspect options earlier than native (for example `null` can throw).
 - `inject.js` is a legacy reference and has no runtime effect.
 
 ## License
