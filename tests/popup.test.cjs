@@ -123,3 +123,16 @@ test('apply stays bound to its original tab across an active-tab change',async()
   assert.deepEqual(ui.reloads,[1]);
   assert.equal(ui.calls.find(msg=>msg.action==='tzc:set-tab-rule').tabId,1);
 });
+
+for(const savedScope of ['site','tab']) test(`saving ${savedScope} preserves the other scope's unsaved draft`,async()=>{
+  const ui=await uiContext();
+  const otherScope=savedScope==='site'?'tab':'site';
+  ui.element('rule-scope').value=otherScope;ui.element('rule-scope').listeners.change();
+  ui.element('rule-mode').value='fixed';ui.element('rule-timezone').value='Europe/Berlin';
+  ui.element('rule-scope').value=savedScope;ui.element('rule-scope').listeners.change();
+  ui.element('rule-mode').value='auto';
+  await ui.element('apply-rule-btn').listeners.click();
+  ui.element('rule-scope').value=otherScope;ui.element('rule-scope').listeners.change();
+  assert.equal(ui.element('rule-mode').value,'fixed');
+  assert.equal(ui.element('rule-timezone').value,'Europe/Berlin');
+});

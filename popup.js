@@ -54,18 +54,21 @@ function renderRuleEditor() {
   updateEditorAvailability();
 }
 
-async function updateUI({ preserveDrafts = false } = {}) {
+async function updateUI({ preserveDrafts = false, savedScope = null } = {}) {
   const [settingsPayload, status] = await Promise.all([
     sendMessage({ action: "tzc:get-settings" }),
     sendMessage({ action: "tzc:get-tab-status" })
   ]);
   const samePage = currentTabId === status.tabId && currentHost === status.hostname;
-  if (preserveDrafts && samePage) drafts[currentScope] = readRuleForm();
-  else {
-    drafts = {
-      site: { mode: status.siteRule?.mode || "inherit", timezone: status.siteRule?.timezone || "" },
-      tab: { mode: status.tabOverride?.mode || "inherit", timezone: status.tabOverride?.timezone || "" }
-    };
+  const savedRules = {
+    site: { mode: status.siteRule?.mode || "inherit", timezone: status.siteRule?.timezone || "" },
+    tab: { mode: status.tabOverride?.mode || "inherit", timezone: status.tabOverride?.timezone || "" }
+  };
+  if (samePage && (preserveDrafts || savedScope)) {
+    drafts[currentScope] = readRuleForm();
+    if (savedScope) drafts[savedScope] = savedRules[savedScope];
+  } else {
+    drafts = savedRules;
   }
   if (!samePage) currentScope = status.tabOverride ? "tab" : "site";
   currentTabId = status.tabId ?? null;
@@ -140,7 +143,7 @@ onAction("apply-rule-btn", async () => {
       ? { action: "tzc:set-tab-rule", tabId, mode: rule.mode, timezone }
       : { action: "tzc:set-site-rule", pattern: hostname, rule: { mode: rule.mode, timezone } });
     await chrome.tabs.reload(tabId);
-    await updateUI();
+    await updateUI({ savedScope: scope });
     document.getElementById("status-message").textContent = scope === "tab"
       ? "Saved for this tab. Page reloaded."
       : "Saved for this site. Page reloaded; other open tabs need a reload.";

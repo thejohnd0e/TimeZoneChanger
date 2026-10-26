@@ -49,6 +49,15 @@ Files: `popup.js`, `popup.html`, `popup.css`, `tests/helpers/ui-context.cjs`, `t
 Files: `tests/browser-smoke.cjs`, `README.md`, this plan.
 
 - [x] Adapt real-browser UI actions to the single form; verify exactly one Apply editor, scope switch and save/reload, normal and unsupported extension/chrome pages, Refresh/Options available (Chrome 156; no page errors; preview visually inspected).
-- [ ] Run `node tests/browser-smoke.cjs`, full `node --test tests/*.test.cjs`, syntax and diff checks.
-- [ ] Update README popup description, commit, obtain one read-only final code review and fix concrete important findings with regression tests.
-- [ ] Report results and any unverified restrictions. Keep master and original user changes untouched.
+- [x] Run `node tests/browser-smoke.cjs`, full `node --test tests/*.test.cjs`, syntax and diff checks (final: 159/159, Chrome 156 passed, zero page errors).
+- [x] Update README popup description, commit, obtain one read-only final code review and fix concrete important findings with regression tests.
+- [x] Report results and any unverified restrictions. Keep master and original user changes untouched.
+
+## Execution record
+
+- Unsupported-page regressions: 9 RED → GREEN; one source of tab ID/host in status, no unsupported locks, background rejects unsupported tab writes.
+- Single-editor regressions: 9 RED → GREEN; saved scopes and unsaved drafts independent, controls disabled while unavailable/busy, failed save does not reload, active-tab change does not retarget captured write/reload.
+- Chrome 156 verified one form (old forms and exclusion action absent), unsupported own extension page and chrome://settings, both scope saves and automatic reload, inherited rules, existing injection/rule/lock scenarios. Preview visually inspected.
+- Independent read-only review of `5b2d99c..3582d32`: one Important finding, no Critical/Minor. Applying one scope reset the unsaved draft of the other. Added tests in both directions (2 RED), reconciled only saved scope after applying. Final suite: 159/159 GREEN and repeated Chrome smoke GREEN. No second review was dispatched.
+- Runtime defaults, storage schema, precedence and injection architecture were not changed. Global exclusions/whitelist remain Options-only. No merge or push.
+- Browser integration uses isolated headless pages, not an installed toolbar popup on a live user profile; Chrome's actual toolbar size/scroll behavior and live Google/VPN flows are not claimed as verified here.
