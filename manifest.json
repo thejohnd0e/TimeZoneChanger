@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeZone Changer",
-  "version": "2.01",
+  "version": "2.02",
   "description": "Automatically changes browser timezone to match your IP's location.",
   "permissions": [
     "storage",
