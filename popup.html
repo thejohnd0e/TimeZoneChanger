@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>TimeZone Changer</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -38,37 +39,33 @@
                 <span class="label">Mode:</span>
                 <span id="current-mode" class="value">-</span>
             </div>
-            <button id="add-exclusion-btn" class="secondary-btn">Add Site to Exclusions</button>
+            <p id="page-message" class="hint" role="status">Loading current page...</p>
         </div>
 
         <div class="card">
-            <div class="section-title">Per-site Rule</div>
-            <select id="site-mode">
+            <div class="section-title">Quick rule</div>
+            <label class="field-label" for="rule-scope">Apply to</label>
+            <select id="rule-scope" disabled aria-describedby="scope-hint">
+                <option value="site">This site</option>
+                <option value="tab">This tab only</option>
+            </select>
+            <label class="field-label" for="rule-mode">Mode</label>
+            <select id="rule-mode" disabled>
                 <option value="inherit">Use inherited policy</option>
                 <option value="auto">Auto by IP</option>
                 <option value="disable">Do not spoof</option>
                 <option value="fixed">Fixed timezone</option>
             </select>
-            <input id="site-timezone" type="text" placeholder="America/New_York">
-            <button id="save-site-rule-btn">Save Site Rule</button>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Per-tab Rule</div>
-            <select id="tab-mode">
-                <option value="inherit">Use site/default policy</option>
-                <option value="auto">Auto by IP</option>
-                <option value="disable">Do not spoof</option>
-                <option value="fixed">Fixed timezone</option>
-            </select>
-            <input id="tab-timezone" type="text" placeholder="Europe/Berlin">
-            <button id="save-tab-rule-btn">Apply to This Tab</button>
+            <label id="timezone-label" class="field-label" for="rule-timezone" hidden>Timezone</label>
+            <input id="rule-timezone" type="text" placeholder="America/New_York" disabled hidden>
+            <p id="scope-hint" class="hint"></p>
+            <button id="apply-rule-btn" disabled>Apply and reload</button>
         </div>
 
         <div class="actions">
             <p id="status-message" role="status" aria-live="polite"></p>
             <button id="refresh-btn">Refresh IP/Timezone</button>
-            <button id="open-options-btn" class="secondary-btn">Open Settings</button>
+            <button id="open-options-btn" class="secondary-btn">All rules and exclusions</button>
         </div>
     </div>
     <script src="popup.js"></script>

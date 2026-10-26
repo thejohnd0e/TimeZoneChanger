@@ -101,3 +101,38 @@ input {
 .actions {
     margin-top: 4px;
 }
+
+.field-label {
+    display: block;
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.hint,
+#status-message {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #52616f;
+    overflow-wrap: anywhere;
+}
+
+#status-message:empty {
+    display: none;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+button:disabled:hover {
+    background-color: #3498db;
+}
+
+[hidden] {
+    display: none !important;
+}
