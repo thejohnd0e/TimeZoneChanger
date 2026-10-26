@@ -33,7 +33,11 @@ function backgroundContext(options = {}) {
     runtime:{onInstalled:event('installed'),onStartup:event('startup'),onMessage:event('message')},
     alarms:{onAlarm:event('alarm'),create(){}},
     webNavigation:{onBeforeNavigate:event('navigate')},
-    tabs:{onRemoved:event('removed'),async query(){return [{id:1,url:'https://example.com/'}];}}
+    tabs:{
+      onRemoved:event('removed'),
+      async query(){return options.activeTab === null ? [] : [options.activeTab || {id:1,url:'https://example.com/'}];},
+      async get(id){return options.activeTab?.id === id ? options.activeTab : {id,url:'https://example.com/'};}
+    }
   };
   const context = vm.createContext({
     chrome, URL, AbortController, structuredClone,

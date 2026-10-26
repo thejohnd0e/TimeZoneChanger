@@ -83,7 +83,11 @@ async function clearTabState(tabId) {
 
 function getHostname(url) {
   try {
-    return new URL(url).hostname;
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    if (parsed.hostname === "chromewebstore.google.com") return "";
+    if (parsed.hostname === "chrome.google.com" && /^\/webstore(?:\/|$)/.test(parsed.pathname)) return "";
+    return parsed.hostname;
   } catch (_) {
     return "";
   }
@@ -148,10 +152,10 @@ async function getPageConfig(tabId, hostname) {
 async function getTabStatus(tab) {
   const hostname = getHostname(tab?.url || "");
   if (!hostname) {
-    return { hostname: "", mode: "disable", timezone: SYSTEM_TIMEZONE, shouldSpoof: false, source: "unsupported" };
+    return { tabId: tab?.id ?? null, supported: false, hostname: "", mode: "disable", timezone: "", shouldSpoof: false, source: "unsupported", siteRule: null, tabOverride: null };
   }
   const [config, settings, state] = await Promise.all([getPageConfig(tab.id, hostname), getSettings(), getTabState()]);
-  return { hostname, ...config, siteRule: settings.siteRules[hostname] || null, tabOverride: state[tab.id]?.tabOverride || null };
+  return { tabId: tab.id, supported: true, hostname, ...config, siteRule: settings.siteRules[hostname] || null, tabOverride: state[tab.id]?.tabOverride || null };
 }
 
 async function updateTimezone(force = false) {
@@ -278,6 +282,10 @@ async function handleMessage(msg, sender) {
   if (msg.action === "tzc:set-tab-rule") {
     const tabId = Number(msg.tabId ?? sender?.tab?.id);
     if (!Number.isInteger(tabId) || tabId < 0) return { ok: false, error: "invalid-tab" };
+    let tab;
+    try { tab = await chrome.tabs.get(tabId); }
+    catch (_) { return { ok: false, error: "invalid-tab" }; }
+    if (!getHostname(tab.url || "")) return { ok: false, error: "unsupported-tab" };
     if (invalidFixedRule(msg)) return { ok: false, error: "invalid-timezone" };
     await mutateTabState((state) => {
       const entry = { ...state[tabId] };
@@ -292,7 +300,7 @@ async function handleMessage(msg, sender) {
   }
   if (msg.action === "tzc:get-tab-status") {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tab ? getTabStatus(tab) : { hostname: "", mode: "disable", shouldSpoof: false, timezone: SYSTEM_TIMEZONE };
+    return getTabStatus(tab);
   }
 }
 

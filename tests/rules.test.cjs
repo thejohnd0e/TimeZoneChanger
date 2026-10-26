@@ -91,3 +91,35 @@ test('wildcards do not include the apex domain and default protection is retaine
   assert.equal(bg.run('TZC_SHARED.resolveHostnameBehavior("gemini.google.com", TZC_SHARED.DEFAULT_SETTINGS).source'),'excluded');
   assert.equal(bg.run('TZC_SHARED.resolveHostnameBehavior("google.com", TZC_SHARED.DEFAULT_SETTINGS).mode'),'auto');
 });
+
+for(const url of ['chrome-extension://exampleid/options.html','chrome://settings/','about:blank','file:///C:/test.html','data:text/html,test','https://chromewebstore.google.com/detail/test','https://chrome.google.com/webstore/detail/test']) {
+  test(`unsupported page status never locks timezone: ${url}`,async()=>{
+    const bg=backgroundContext({activeTab:{id:1,url}});
+    const status=await bg.message({action:'tzc:get-tab-status'});
+    assert.equal(status.supported,false);
+    assert.equal(status.tabId,1);
+    assert.equal(status.shouldSpoof,false);
+    assert.equal(status.source,'unsupported');
+    assert.equal(status.hostname,'');
+    assert.equal(bg.data.session.tabStateV1,undefined);
+    const result=await bg.message({action:'tzc:set-tab-rule',tabId:1,mode:'fixed',timezone:'UTC'});
+    assert.equal(result.ok,false);
+    assert.equal(result.error,'unsupported-tab');
+    assert.equal(bg.data.session.tabStateV1,undefined);
+  });
+}
+
+test('supported status binds hostname and selected rule to the same tab id',async()=>{
+  const bg=backgroundContext({activeTab:{id:42,url:'https://example.com/'}});
+  const status=await bg.message({action:'tzc:get-tab-status'});
+  assert.equal(status.supported,true);
+  assert.equal(status.tabId,42);
+  assert.equal(status.hostname,'example.com');
+});
+
+test('no active tab is explicitly unsupported',async()=>{
+  const bg=backgroundContext({activeTab:null});
+  const status=await bg.message({action:'tzc:get-tab-status'});
+  assert.equal(status.supported,false);
+  assert.equal(status.tabId,null);
+});
